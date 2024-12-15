@@ -1,22 +1,29 @@
 // src/pages/ChatPage.jsx
-import React, { useState } from "react";
-import "../styles/chatpage.css";
-import axios from "axios";  // To make API requests
+import React, { useState, useRef, useEffect } from 'react';
+import Navbar from '../components/Navbar'; // Import Navbar
+import Footer from '../components/Footer'; // Import Footer
+import axios from 'axios';
+import '../styles/chatpage.css'; // Import page-specific styles
 
 const ChatPage = () => {
   const [messages, setMessages] = useState([]);
-  const [userInput, setUserInput] = useState("");
+  const [userInput, setUserInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const chatContainerRef = useRef(null);
 
-  // Send user message to the server
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   const handleSendMessage = async () => {
-    if (userInput.trim() !== "") {
-      // Add user message to chat history
-      setMessages([...messages, { sender: "user", text: userInput }]);
-      setUserInput("");
+    if (userInput.trim() !== '') {
+      setMessages([...messages, { sender: 'user', text: userInput }]);
+      setUserInput('');
 
       try {
-        // Make API request to backend (ensure the URL is correct)
-        const response = await axios.post("http://localhost:5000/api/chat", {
+        const response = await axios.post('http://localhost:5000/api/chat', {
           message: userInput,
           history: messages.map((msg) => ({
             role: msg.sender,
@@ -24,45 +31,60 @@ const ChatPage = () => {
           })),
         });
 
-        // Add the chatbot's response to the chat history
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          { sender: "chatbot", text: response.data.reply },
-        ]);
+        setIsTyping(true);
+        setTimeout(() => {
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            { sender: 'chatbot', text: response.data.reply },
+          ]);
+          setIsTyping(false);
+        }, 1500);
       } catch (error) {
-        console.error("Error:", error);
+        console.error('Error:', error);
         setMessages((prevMessages) => [
           ...prevMessages,
-          { sender: "chatbot", text: "Error with the chatbot API" },
+          { sender: 'chatbot', text: 'Error with the chatbot API' },
         ]);
       }
     }
   };
 
   return (
-    <div className="chat-container">
-      <div className="chat-header">
-        <h2>Funzie Chat</h2>
+    <div>
+      {/* Navbar */}
+      <Navbar />
+
+      {/* Chat Section */}
+      <div className="chat-container" style={{ background: '#FF4081' }}>
+        <div className="chat-body" ref={chatContainerRef}>
+          {messages.map((msg, index) => (
+            <div
+              key={index}
+              className={msg.sender === 'user' ? 'user-message' : 'chatbot-message'}
+            >
+              <p>{msg.text}</p>
+            </div>
+          ))}
+          {isTyping && (
+            <div className="chatbot-message typing">
+              <p>...</p>
+            </div>
+          )}
+        </div>
+
+        <div className="chat-input">
+          <input
+            type="text"
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+            placeholder="Ask me anything!"
+          />
+          <button onClick={handleSendMessage}>Send</button>
+        </div>
       </div>
-      <div className="chat-body">
-        {messages.map((msg, index) => (
-          <div
-            key={index}
-            className={msg.sender === "user" ? "user-message" : "chatbot-message"}
-          >
-            <p>{msg.text}</p>
-          </div>
-        ))}
-      </div>
-      <div className="chat-input">
-        <input
-          type="text"
-          placeholder="Ask me anything!"
-          value={userInput}
-          onChange={(e) => setUserInput(e.target.value)}
-        />
-        <button onClick={handleSendMessage}>Send</button>
-      </div>
+      {/* Footer */}
+      <Footer />
     </div>
   );
 };
