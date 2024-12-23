@@ -7,71 +7,92 @@ import '../styles/chatpage.css'; // Import page-specific styles
 const ChatPage = () => {
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState('');
-  const [mediaInput, setMediaInput] = useState('');
-  const [inputType, setInputType] = useState('text'); // State to track input type
+  const [inputType, setInputType] = useState('text');
   const chatContainerRef = useRef(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechRecognition, setSpeechRecognition] = useState(null);
 
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [messages]);
 
+    // Initialize Speech Recognition API
+    if (window.SpeechRecognition || window.webkitSpeechRecognition) {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      setSpeechRecognition(recognition);
+    }
+  }, []);
+
+  // Handle sending message (text or voice)
   const handleSendMessage = async () => {
-    if (userInput.trim() !== '' || mediaInput.trim() !== '') {
+    if (userInput.trim() !== '') {
       const newMessage = {
         sender: 'user',
         text: userInput,
-        media: mediaInput,
         type: inputType,
       };
 
       setMessages([...messages, newMessage]);
       setUserInput('');
-      setMediaInput('');
 
       try {
         const response = await axios.post('http://localhost:5000/api/chat', {
           message: userInput,
-          media: mediaInput,
           history: messages.map((msg) => ({
             role: msg.sender,
             text: msg.text,
-            media: msg.media,
           })),
         });
 
         setMessages((prevMessages) => [
           ...prevMessages,
-          { sender: 'chatbot', text: response.data.reply, media: '', type: 'text' },
+          { sender: 'chatbot', text: response.data.reply, type: 'text' },
         ]);
+
+        // Voice Output - Gemini API response can generate an audio file
+        playVoiceOutput(response.data.reply);
       } catch (error) {
         console.error('Error:', error);
         setMessages((prevMessages) => [
           ...prevMessages,
-          { sender: 'chatbot', text: 'Error with the chatbot API', media: '', type: 'text' },
+          { sender: 'chatbot', text: 'Error with the chatbot API', type: 'text' },
         ]);
       }
     }
   };
 
+  // Play voice output using the Gemini API (example using Web Speech API for simplicity)
+  const playVoiceOutput = (text) => {
+    const speechSynthesis = window.speechSynthesis;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = speechSynthesis.getVoices().find(voice => voice.name === 'Google UK English Male'); // Customize voice
+    speechSynthesis.speak(utterance);
+  };
+
+  // Start/Stop Recording
+  const toggleRecording = () => {
+    if (isRecording) {
+      speechRecognition.stop();
+      setIsRecording(false);
+    } else {
+      speechRecognition.start();
+      setIsRecording(true);
+
+      speechRecognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        setUserInput(transcript); // Set the transcribed text in the input field
+      };
+    }
+  };
+
   const handleInputChange = (e) => {
     setUserInput(e.target.value);
-  };
-
-  const handleMediaChange = (e) => {
-    setMediaInput(e.target.value);
-  };
-
-  const handleInputTypeChange = (e) => {
-    const fileType = e.target.files ? e.target.files[0] : null;
-    if (fileType) {
-      const fileUrl = URL.createObjectURL(fileType);
-      setMediaInput(fileUrl);
-      setInputType('file');
-    } else if (e.target.type === 'file') {
-      setInputType('file');
-    }
   };
 
   return (
@@ -83,18 +104,8 @@ const ChatPage = () => {
       <div className="chat-container" style={{ background: '#FF4081' }}>
         <div className="chat-body" ref={chatContainerRef}>
           {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={msg.sender === 'user' ? 'user-message' : 'chatbot-message'}
-            >
+            <div key={index} className={msg.sender === 'user' ? 'user-message' : 'chatbot-message'}>
               <p>{msg.text}</p>
-              {msg.media && (
-                <div>
-                  {msg.type === 'image' && <img src={msg.media} alt="user-uploaded" />}
-                  {msg.type === 'audio' && <audio controls src={msg.media}></audio>}
-                  {msg.type === 'file' && <a href={msg.media} target="_blank" rel="noopener noreferrer">Download File</a>}
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -105,33 +116,17 @@ const ChatPage = () => {
             type="text"
             value={userInput}
             onChange={handleInputChange}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder="Type your message here"
             style={{ display: inputType === 'text' ? 'block' : 'none' }}
           />
 
-          {/* Media URL Input for Image, Audio, and File */}
-          <input
-            type="text"
-            value={mediaInput}
-            onChange={handleMediaChange}
-            placeholder={
-              inputType === 'image' ? 'Enter image URL' :
-              inputType === 'audio' ? 'Enter audio URL' :
-              inputType === 'file' ? 'Enter file URL' : ''
-            }
-            style={{ display: inputType !== 'text' ? 'block' : 'none' }}
-          />
-
-          {/* File Input for uploading files */}
-          <input
-            type="file"
-            onChange={handleInputTypeChange}
-            style={{ display: inputType === 'file' ? 'block' : 'none' }}
-          />
-
           {/* Send Button */}
           <button onClick={handleSendMessage}>Send</button>
+
+          {/* Microphone Button */}
+          <button onClick={toggleRecording}>
+            {isRecording ? 'Stop Recording' : 'Start Recording'}
+          </button>
         </div>
       </div>
 
