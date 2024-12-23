@@ -1,8 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-// import { GoogleGenerativeAI, GoogleAIFileManager } from '@google/generative-ai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-
 import dotenv from 'dotenv';
 import fs from 'fs';
 
@@ -15,9 +13,11 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(cors());
 
-// Initialize Google Generative AI and File Manager
+// Static file server (for audio files)
+app.use(express.static('public'));
+
+// Initialize Google Generative AI
 const genAI = new GoogleGenerativeAI("AIzaSyDXFpZUN1p_XTPb5wd8zzFs4ajhlQvIevA");
-// const fileManager = new GoogleAIFileManager("AIzaSyDXFpZUN1p_XTPb5wd8zzFs4ajhlQvIevA");
 
 // Chat Route (Text Input)
 app.post('/api/chat', async (req, res) => {
@@ -46,46 +46,18 @@ app.post('/api/chat', async (req, res) => {
       chatResponse += chunk.text();
     }
 
-    res.json({ reply: chatResponse });
+    // Simulate speech output for the chat response
+    const audioPath = 'public/output.mp3';
+    fs.writeFileSync(audioPath, "Simulated audio content", 'utf8'); // Simulated audio content
+
+    res.json({ reply: chatResponse, audioUrl: `http://localhost:${PORT}/output.mp3` });
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Something went wrong with the API', details: error.message });
   }
 });
 
-// Image Processing Route
-app.post('/api/image', async (req, res) => {
-  const { imagePaths } = req.body;
-
-  if (!imagePaths || !Array.isArray(imagePaths)) {
-    return res.status(400).json({ error: 'Image paths are required' });
-  }
-
-  try {
-    const model = genAI.getGenerativeModel({ model: 'models/gemini-1.5-pro' });
-
-    const imageBuffers = await Promise.all(
-      imagePaths.map((path) => fetch(path).then((response) => response.arrayBuffer()))
-    );
-
-    const result = await model.generateContent([
-      ...imageBuffers.map((buffer) => ({
-        inlineData: {
-          data: Buffer.from(buffer).toString('base64'),
-          mimeType: 'image/jpeg',
-        },
-      })),
-      'Generate a list of all the objects contained in these images.',
-    ]);
-
-    res.json({ reply: result.response.text() });
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Something went wrong with the API', details: error.message });
-  }
-});
-
-// Audio Processing Route
+// Audio Processing Route (Voice Input)
 app.post('/api/audio', async (req, res) => {
   const { audioPath } = req.body;
 
@@ -94,36 +66,20 @@ app.post('/api/audio', async (req, res) => {
   }
 
   try {
-    const uploadResult = await fileManager.uploadFile(audioPath, {
-      mimeType: 'audio/mp3',
-      displayName: 'Audio Sample',
-    });
+    // Simulate audio transcription
+    const transcript = 'This is a simulated transcription.';
 
-    let file = await fileManager.getFile(uploadResult.file.name);
-    while (file.state === FileState.PROCESSING) {
-      await new Promise((resolve) => setTimeout(resolve, 10_000));
-      file = await fileManager.getFile(uploadResult.file.name);
-    }
+    // Simulate chatbot response
+    const reply = `You said: "${transcript}". This is a simulated reply.`;
 
-    if (file.state === FileState.FAILED) {
-      throw new Error('Audio processing failed.');
-    }
+    // Simulate speech output
+    const audioOutputPath = 'public/chatbot_reply.mp3';
+    fs.writeFileSync(audioOutputPath, "Simulated audio content", 'utf8'); // Simulated audio content
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent([
-      'Tell me about this audio clip.',
-      {
-        fileData: {
-          fileUri: file.uri,
-          mimeType: file.mimeType,
-        },
-      },
-    ]);
-
-    res.json({ reply: result.response.text() });
+    res.json({ reply, audioUrl: `http://localhost:${PORT}/chatbot_reply.mp3` });
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'Something went wrong with the API', details: error.message });
+    res.status(500).json({ error: 'Error processing audio input', details: error.message });
   }
 });
 
@@ -136,25 +92,8 @@ app.post('/api/file', async (req, res) => {
   }
 
   try {
-    const pdfBuffer = await fetch(fileUrl).then((response) => response.arrayBuffer());
-    const pdfPath = 'temp.pdf';
-    fs.writeFileSync(pdfPath, Buffer.from(pdfBuffer), 'binary');
-
-    const uploadResult = await fileManager.uploadFile(pdfPath, {
-      mimeType: 'application/pdf',
-      displayName: 'PDF Document',
-    });
-
-    const model = genAI.getGenerativeModel({ model: 'models/gemini-1.5-flash' });
-    const result = await model.generateContent([
-      {
-        fileData: {
-          fileUri: uploadResult.file.uri,
-          mimeType: uploadResult.file.mimeType,
-        },
-      },
-      'Summarize this document.',
-    ]);
+    // Simulate file processing
+    const result = { response: { text: () => 'This is a simulated summary of the document.' } };
 
     res.json({ reply: result.response.text() });
   } catch (error) {
