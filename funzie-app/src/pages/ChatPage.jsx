@@ -1,4 +1,3 @@
-// src/pages/ChatPage.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import Navbar from '../components/Navbar'; // Import Navbar
 import Footer from '../components/Footer'; // Import Footer
@@ -8,7 +7,8 @@ import '../styles/chatpage.css'; // Import page-specific styles
 const ChatPage = () => {
   const [messages, setMessages] = useState([]);
   const [userInput, setUserInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [mediaInput, setMediaInput] = useState('');
+  const [inputType, setInputType] = useState('text'); // State to track input type
   const chatContainerRef = useRef(null);
 
   useEffect(() => {
@@ -18,34 +18,59 @@ const ChatPage = () => {
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (userInput.trim() !== '') {
-      setMessages([...messages, { sender: 'user', text: userInput }]);
+    if (userInput.trim() !== '' || mediaInput.trim() !== '') {
+      const newMessage = {
+        sender: 'user',
+        text: userInput,
+        media: mediaInput,
+        type: inputType,
+      };
+
+      setMessages([...messages, newMessage]);
       setUserInput('');
+      setMediaInput('');
 
       try {
         const response = await axios.post('http://localhost:5000/api/chat', {
           message: userInput,
+          media: mediaInput,
           history: messages.map((msg) => ({
             role: msg.sender,
             text: msg.text,
+            media: msg.media,
           })),
         });
 
-        setIsTyping(true);
-        setTimeout(() => {
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            { sender: 'chatbot', text: response.data.reply },
-          ]);
-          setIsTyping(false);
-        }, 1500);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          { sender: 'chatbot', text: response.data.reply, media: '', type: 'text' },
+        ]);
       } catch (error) {
         console.error('Error:', error);
         setMessages((prevMessages) => [
           ...prevMessages,
-          { sender: 'chatbot', text: 'Error with the chatbot API' },
+          { sender: 'chatbot', text: 'Error with the chatbot API', media: '', type: 'text' },
         ]);
       }
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setUserInput(e.target.value);
+  };
+
+  const handleMediaChange = (e) => {
+    setMediaInput(e.target.value);
+  };
+
+  const handleInputTypeChange = (e) => {
+    const fileType = e.target.files ? e.target.files[0] : null;
+    if (fileType) {
+      const fileUrl = URL.createObjectURL(fileType);
+      setMediaInput(fileUrl);
+      setInputType('file');
+    } else if (e.target.type === 'file') {
+      setInputType('file');
     }
   };
 
@@ -63,26 +88,53 @@ const ChatPage = () => {
               className={msg.sender === 'user' ? 'user-message' : 'chatbot-message'}
             >
               <p>{msg.text}</p>
+              {msg.media && (
+                <div>
+                  {msg.type === 'image' && <img src={msg.media} alt="user-uploaded" />}
+                  {msg.type === 'audio' && <audio controls src={msg.media}></audio>}
+                  {msg.type === 'file' && <a href={msg.media} target="_blank" rel="noopener noreferrer">Download File</a>}
+                </div>
+              )}
             </div>
           ))}
-          {isTyping && (
-            <div className="chatbot-message typing">
-              <p>...</p>
-            </div>
-          )}
         </div>
 
         <div className="chat-input">
+          {/* Text Input */}
           <input
             type="text"
             value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="Ask me anything!"
+            placeholder="Type your message here"
+            style={{ display: inputType === 'text' ? 'block' : 'none' }}
           />
+
+          {/* Media URL Input for Image, Audio, and File */}
+          <input
+            type="text"
+            value={mediaInput}
+            onChange={handleMediaChange}
+            placeholder={
+              inputType === 'image' ? 'Enter image URL' :
+              inputType === 'audio' ? 'Enter audio URL' :
+              inputType === 'file' ? 'Enter file URL' : ''
+            }
+            style={{ display: inputType !== 'text' ? 'block' : 'none' }}
+          />
+
+          {/* File Input for uploading files */}
+          <input
+            type="file"
+            onChange={handleInputTypeChange}
+            style={{ display: inputType === 'file' ? 'block' : 'none' }}
+          />
+
+          {/* Send Button */}
           <button onClick={handleSendMessage}>Send</button>
         </div>
       </div>
+
       {/* Footer */}
       <Footer />
     </div>
