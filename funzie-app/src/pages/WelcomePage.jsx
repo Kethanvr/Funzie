@@ -37,7 +37,7 @@ const WelcomePage = () => {
 
           <div className="col-md-6 text-center">
             <img
-              src="https://images.aiscribbles.com/74e2933d287e4878adba5c7d222cfe14.png?v=ff8569"
+              src="https://imgcdn.stablediffusionweb.com/2024/5/18/ed88a860-f3b6-41e0-b874-194b6a4054af.jpg"
               alt="Funzie Character"
               className="img-fluid rounded-circle shadow-lg"
               style={{ width: '80%' }}
