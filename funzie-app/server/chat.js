@@ -3,6 +3,7 @@ import cors from 'cors';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import process from 'node:process';
 
 dotenv.config();
 
@@ -17,7 +18,11 @@ app.use(cors());
 app.use(express.static('public'));
 
 // Initialize Google Generative AI
-const genAI = new GoogleGenerativeAI("AIzaSyDXFpZUN1p_XTPb5wd8zzFs4ajhlQvIevA");
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  throw new Error("GEMINI_API_KEY must be set in the server environment");
+}
+const genAI = new GoogleGenerativeAI(apiKey);
 
 // Chat Route (Text Input)
 app.post('/api/chat', async (req, res) => {
